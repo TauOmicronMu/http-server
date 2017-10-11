@@ -36,7 +36,7 @@ void *handleConnection(void *args) {
         exit(1);
     }
 
-    close(clisockfd);
+    close(*clisockfd);
     free(clisockfd);
     free(cli_addr);
     free((struct cli_thread_args *) args);
