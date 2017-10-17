@@ -7,8 +7,6 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 
-#include "http.h"
-
 #define BACKLOG 10
 
 #define BUFFER_SIZE 16384
@@ -19,8 +17,27 @@ struct cli_thread_args {
 } cli_thread_args;
 
 int handleRequest(char *request, int *clisockfd) {
-    if(write(*clisockfd, "Test\n", 5) < 0) {
-        return -1;
+    // TODO: Actually handle requests instead of sending a default OK one.
+   
+    // construct OK response with default page. 
+    int status = 200;
+    char *conn = "close";
+    char *serv = "txg523 HTTP 1.1 Server 1.0";
+    char *ars = "bytes";
+    char *type = "text/html";
+    int len  = 54;
+    char *body = "<!doctype html><html><body><h1>TEST</h1></body></html>\n";  
+
+    struct http_response *res = construct_http_response(status, conn, serv, ars, type, len, body);
+
+    if(send_http_response(clisockfd, res) < 0) {
+        fprintf(stderr, "Error sending HTTP Response\n");
+        exit(1);
+    }
+
+    if(destroy_http_response(res) < 0) {
+        fprintf(stderr, "Error destroying HTTP response struct\n");
+        exit(1);
     }
 
     return 0;

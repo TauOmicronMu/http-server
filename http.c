@@ -1,6 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 #include "http.h"
 
@@ -8,31 +12,82 @@
 struct general_headers *create_general_headers() {
     struct general_headers *hdr = calloc(1, sizeof(struct general_headers));
     
-    hdr->date = calloc(1, sizeof(char *));
-    hdr->connection = calloc(1, sizeof(char *));
+    hdr->date = NULL;
+    hdr->connection = NULL;
 
     return hdr;
+}
+
+// Add the current timestamp to the general_headers struct, hdr
+int general_headers_add_timestamp(struct general_headers *hdr) {
+    if(!hdr) return -1;
+
+    // TODO: get current datetime
+    // TODO: convert current datetime to correct format
+    // TODO: timestamp header
+
+    return 0;
+}
+
+// Add the given connection, conn, to the general_headers struct, hdr
+int general_headers_add_connection(struct general_headers *hdr, char *conn) {
+    if(!hdr) return -1;
+
+    hdr->connection = calloc(1, strlen(conn) * sizeof(char));
+    strcpy(hdr->connection, conn);
+
+    return 0;
 }
 
 // Create a response_headers struct with default values
 struct response_headers *create_response_headers() {
     struct response_headers *hdr = calloc(1, sizeof(struct response_headers));
 
-    hdr->server = calloc(1, sizeof(char *));
-    hdr->accept_ranges = (1, sizeof(char *));
+    hdr->server = NULL;
+    hdr->accept_ranges = NULL;
 
     return hdr;
+}
+
+// Add the given server, serv, to the response_headers struct, hdr
+int response_headers_add_server(struct response_headers *hdr, char *serv) {
+    if(!hdr) return -1;
+
+    hdr->server = calloc(1, strlen(serv) * sizeof(char));
+    strcpy(hdr->server, serv);
+
+    return 0;
+}
+
+// Add the given accept_ranges, ars, to the response_headers struct, hdr
+int response_headers_add_accept_ranges(struct response_headers *hdr, char *ars) {
+    if(!hdr) return -1;
+
+    hdr->accept_ranges = calloc(1, strlen(ars) * sizeof(char));
+    strcpy(hdr->accept_ranges, ars);
+
+    return 0;
 }
 
 // Create an entity_headers struct with default values
 struct entity_headers *create_entity_headers() { 
     struct entity_headers *hdr = calloc(1, sizeof(struct entity_headers));
 
-    hdr->content_type = calloc(1, sizeof(char *));
+    hdr->content_type = NULL;
     hdr->content_length = 0;
 
     return hdr;
 }
+
+// Add the given content_type, type, to the entity_headers struct, hdr
+int entity_headers_add_content_type(struct entity_headers *hdr, char *type) {
+    if(!hdr) return -1;
+
+    hdr->content_type = calloc(1, strlen(type) * sizeof(char));
+    strcpy(hdr->content_type, type);
+
+    return 0;
+} 
 
 // Create an http_response struct with default values
 struct http_response *create_http_response() {
@@ -90,7 +145,7 @@ int add_http_response_body(struct http_response *res, char *body) {
     if(res->body) return -1;
     
     // Reallocate enough space for the whole body and zero the new memory
-    realloc(res->body, res->entity_headers->content_length);
+    res->body = realloc(res->body, res->entity_headers->content_length);
     memset(res->body, 0, res->entity_headers->content_length * sizeof(char));
 
     // Copy the provided body into the response
@@ -112,3 +167,24 @@ int send_http_response(int *clisockfd, struct http_response *res) {
 
     return 0;
 }
+
+// Construct a full HTTP response (struct) from the required components
+struct http_response *construct_http_response(int status, char *conn, char *serv, char *ars, char *type, int len, char *body) {
+    // Create a blank http_response struct
+    struct http_response *res = create_http_response();
+
+    res->status = status;
+
+    general_headers_add_connection(res->general_headers, conn);
+
+    response_headers_add_server(res->response_headers, serv);
+    response_headers_add_accept_ranges(res->response_headers, ars);
+
+    res->entity_headers->content_length = len;
+    entity_headers_add_content_type(res->entity_headers, type);
+
+    add_http_response_body(res, body);
+
+    return res;
+}
+
