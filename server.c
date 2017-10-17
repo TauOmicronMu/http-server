@@ -7,6 +7,8 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 
+#include "http.h"
+
 #define BACKLOG 10
 
 #define BUFFER_SIZE 16384
@@ -16,6 +18,14 @@ struct cli_thread_args {
     int *clisockfd;
 } cli_thread_args;
 
+int handleRequest(char *request, int *clisockfd) {
+    if(write(*clisockfd, "Test\n", 5) < 0) {
+        return -1;
+    }
+
+    return 0;
+}
+
 void *handleConnection(void *args) {
     int *clisockfd = ((struct cli_thread_args *) args)->clisockfd;
     struct sockaddr_in *cli_addr = ((struct cli_thread_args *) args)->cli_addr;
@@ -24,15 +34,14 @@ void *handleConnection(void *args) {
 
     memset(in_buffer, '\0', BUFFER_SIZE * sizeof(char));
 
+    
     if(read(*clisockfd, in_buffer, BUFFER_SIZE - 1) < 0) {
         fprintf(stderr, "error reading from socket\n");
         exit(1);
     }
 
-    printf("%s", in_buffer);
-
-    if(write(*clisockfd, "I got your message!\n", 18) < 0) {
-        fprintf(stderr, "error writing to socket\n");
+    if(handleRequest(in_buffer, clisockfd) < 0) {
+        fprintf(stderr, "error handling request:\n%s\n", in_buffer);
         exit(1);
     }
 
