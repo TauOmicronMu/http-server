@@ -23,8 +23,6 @@ struct general_headers *create_general_headers() {
 int general_headers_add_timestamp(struct general_headers *hdr) {
     if(!hdr) return -1;
 
-    printf("add timestamp called\n");
-
     time_t curr_time = time(NULL);
     char *timestr = ctime(&curr_time); 
 
@@ -145,9 +143,14 @@ int destroy_http_response(struct http_response *res) {
 
 // Adds a given body, body to an http_response, res.
 int add_http_response_body(struct http_response *res, char *body) {
-    if(!res->entity_headers) return -1;
-    if(!res->entity_headers->content_length) return -1;
-    if(res->body) return -1;
+    if(!res->entity_headers) {
+        fprintf(stderr, "Error creating http_response: http_response has no entity_headers\n");
+        return -1;
+    }
+    if(!res->entity_headers->content_length) {
+        fprintf(stderr, "Error creating http_response: entity_headers has no content_length\n");
+        return -1;
+    }
     
     // Reallocate enough space for the whole body and zero the new memory
     res->body = realloc(res->body, res->entity_headers->content_length);
@@ -179,14 +182,14 @@ char *stat2nam(int stat) {
 
 // Sends an http_response, res, over the given socket, clisockfd
 int send_http_response(int *clisockfd, struct http_response *res) {
-    int n = fprintf(stdout, "HTTP/1.1 %d %s\n"
-                                "Date: %s\n"
+    int n = dprintf(*clisockfd, "HTTP/1.1 %d %s\n"
+                                "Date: %s"
                                 "Connection: %s\n" 
                                 "Server: %s\n"
                                 "Accept-Ranges: %s\n"
                                 "Content-Type: %s\n"
                                 "Content-Length: %d\n\n"
-                                "%s",
+                                "%s\n",
                                 res->status, 
                                 stat2nam(res->status),
                                 res->general_headers->date,
@@ -205,20 +208,35 @@ int send_http_response(int *clisockfd, struct http_response *res) {
 struct http_response *construct_http_response(int status, char *conn, char *serv, char *ars, char *type, int len, char *body) {
     // Create a blank http_response struct
     struct http_response *res = create_http_response();
-
+    
     res->status = status;
 
-    general_headers_add_connection(res->general_headers, conn);
+    if(general_headers_add_connection(res->general_headers, conn) < 0) {
+        fprintf(stderr, "Error adding connection to general_headers struct\n");
+        return NULL;
+    }
 
-    response_headers_add_server(res->response_headers, serv);
+    if(response_headers_add_server(res->response_headers, serv) < 0) {
+        fprintf(stderr, "Error adding server to response_headers struct\n");
+        return NULL;
+    }
 
-    response_headers_add_accept_ranges(res->response_headers, ars);
+    if(response_headers_add_accept_ranges(res->response_headers, ars) < 0) {
+        fprintf(stderr, "Error adding accept_ranges to response_headers struct\n");
+        return NULL;
+    }
 
     res->entity_headers->content_length = len;
 
-    entity_headers_add_content_type(res->entity_headers, type);
+    if(entity_headers_add_content_type(res->entity_headers, type) < 0) {
+        fprintf(stderr, "Error adding content_type to entity_headers struct\n");
+        return NULL; 
+    } 
 
-    add_http_response_body(res, body);
+    if(add_http_response_body(res, body) < 0) {
+        fprintf(stderr, "Error adding body to http_response\n");
+        return NULL;
+    }
 
     // Timestamp the response
     general_headers_add_timestamp(res->general_headers);

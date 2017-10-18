@@ -28,21 +28,19 @@ int handleRequest(char *request, int *clisockfd) {
     char *serv = "TServer/1.0";
     char *ars = "bytes";
     char *type = "text/html";
-    int len  = 54;
     char *body = "<!doctype html><html><body><h1>TEST</h1></body></html>\n";  
-
-    printf("Just before creating http_response\n");
+    int len = strlen(body);
 
     struct http_response *res = construct_http_response(status, conn, serv, ars, type, len, body);
-
-    printf("Successfully created http_response\n");
+    if(!res) {
+        fprintf(stderr, "Error constructing http_response\n");
+        exit(1);
+    }
 
     if(send_http_response(clisockfd, res) < 0) {
         fprintf(stderr, "Error sending HTTP Response\n");
         exit(1);
     }
-
-    printf("Should have sent response\n");
 
     if(destroy_http_response(res) < 0) {
         fprintf(stderr, "Error destroying HTTP response struct\n");
@@ -53,8 +51,6 @@ int handleRequest(char *request, int *clisockfd) {
 }
 
 void *handleConnection(void *args) {
-    printf("handleConnection called\n");
-
     int *clisockfd = ((struct cli_thread_args *) args)->clisockfd;
     struct sockaddr_in *cli_addr = ((struct cli_thread_args *) args)->cli_addr;
 
@@ -131,15 +127,11 @@ int main(int argc, char ** argv) {
 
         clilen = sizeof(cli_addr);
         
-        printf("Waiting for connection...\n");
-
         if((*clisockfd = accept(sockfd, (struct sockaddr *) cli_addr, &clilen)) < 0) {
             fprintf(stderr, "error accepting connection\n");
             exit(1);
         }    
 
-        printf("Got connection \n");
- 
         struct cli_thread_args *args = calloc(1, sizeof(struct cli_thread_args));
         args->cli_addr = cli_addr;
         args->clisockfd = clisockfd;
