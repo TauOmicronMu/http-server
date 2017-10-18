@@ -305,7 +305,7 @@ int add_http_response_body(struct http_response *res, char *body) {
     memset(res->body, 0, res->entity_headers->content_length * sizeof(char));
 
     // Copy the provided body into the response
-    strcpy(res->body, body);
+    strncpy(res->body, body, res->entity_headers->content_length);
 
     return 0;
 }
