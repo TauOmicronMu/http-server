@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
@@ -22,9 +23,13 @@ struct general_headers *create_general_headers() {
 int general_headers_add_timestamp(struct general_headers *hdr) {
     if(!hdr) return -1;
 
-    // TODO: get current datetime
-    // TODO: convert current datetime to correct format
-    // TODO: timestamp header
+    printf("add timestamp called\n");
+
+    time_t curr_time = time(NULL);
+    char *timestr = ctime(&curr_time); 
+
+    hdr->date = calloc(1, strlen(timestr) * sizeof(char));
+    strcpy(hdr->date, timestr);
 
     return 0;
 }
@@ -161,10 +166,38 @@ struct http_response *parse_http_response(char *res) {
     return 0;
 }
 
+// Converts an HTTP status code to its name
+char *stat2nam(int stat) {
+    switch(stat) {
+        case 200 :
+            return "OK";
+            break;
+        default :
+            return NULL;
+    }
+}
+
 // Sends an http_response, res, over the given socket, clisockfd
 int send_http_response(int *clisockfd, struct http_response *res) {
-    // TODO: implement this
-
+    int n = fprintf(stdout, "HTTP/1.1 %d %s\n"
+                                "Date: %s\n"
+                                "Connection: %s\n" 
+                                "Server: %s\n"
+                                "Accept-Ranges: %s\n"
+                                "Content-Type: %s\n"
+                                "Content-Length: %d\n\n"
+                                "%s",
+                                res->status, 
+                                stat2nam(res->status),
+                                res->general_headers->date,
+                                res->general_headers->connection,
+                                res->response_headers->server,
+                                res->response_headers->accept_ranges,
+                                res->entity_headers->content_type,
+                                res->entity_headers->content_length,
+                                res->body);
+    
+    if(n < 0) return -1;
     return 0;
 }
 
@@ -178,12 +211,17 @@ struct http_response *construct_http_response(int status, char *conn, char *serv
     general_headers_add_connection(res->general_headers, conn);
 
     response_headers_add_server(res->response_headers, serv);
+
     response_headers_add_accept_ranges(res->response_headers, ars);
 
     res->entity_headers->content_length = len;
+
     entity_headers_add_content_type(res->entity_headers, type);
 
     add_http_response_body(res, body);
+
+    // Timestamp the response
+    general_headers_add_timestamp(res->general_headers);
 
     return res;
 }

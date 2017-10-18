@@ -7,6 +7,8 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 
+#include "http.h"
+
 #define BACKLOG 10
 
 #define BUFFER_SIZE 16384
@@ -17,23 +19,30 @@ struct cli_thread_args {
 } cli_thread_args;
 
 int handleRequest(char *request, int *clisockfd) {
+        
     // TODO: Actually handle requests instead of sending a default OK one.
    
     // construct OK response with default page. 
     int status = 200;
     char *conn = "close";
-    char *serv = "txg523 HTTP 1.1 Server 1.0";
+    char *serv = "TServer/1.0";
     char *ars = "bytes";
     char *type = "text/html";
     int len  = 54;
     char *body = "<!doctype html><html><body><h1>TEST</h1></body></html>\n";  
 
+    printf("Just before creating http_response\n");
+
     struct http_response *res = construct_http_response(status, conn, serv, ars, type, len, body);
+
+    printf("Successfully created http_response\n");
 
     if(send_http_response(clisockfd, res) < 0) {
         fprintf(stderr, "Error sending HTTP Response\n");
         exit(1);
     }
+
+    printf("Should have sent response\n");
 
     if(destroy_http_response(res) < 0) {
         fprintf(stderr, "Error destroying HTTP response struct\n");
@@ -44,6 +53,8 @@ int handleRequest(char *request, int *clisockfd) {
 }
 
 void *handleConnection(void *args) {
+    printf("handleConnection called\n");
+
     int *clisockfd = ((struct cli_thread_args *) args)->clisockfd;
     struct sockaddr_in *cli_addr = ((struct cli_thread_args *) args)->cli_addr;
 
@@ -120,10 +131,14 @@ int main(int argc, char ** argv) {
 
         clilen = sizeof(cli_addr);
         
+        printf("Waiting for connection...\n");
+
         if((*clisockfd = accept(sockfd, (struct sockaddr *) cli_addr, &clilen)) < 0) {
             fprintf(stderr, "error accepting connection\n");
             exit(1);
         }    
+
+        printf("Got connection \n");
  
         struct cli_thread_args *args = calloc(1, sizeof(struct cli_thread_args));
         args->cli_addr = cli_addr;
