@@ -29,7 +29,7 @@ int handleRequest(char *request, int *clisockfd) {
     char *ars = "bytes";
     char *type = "text/html";
     char *body = "<!doctype html><html><body><h1>TEST</h1></body></html>\n";  
-    int len = strlen(body);
+    int len = strlen(body) + 1;
 
     struct http_response *res = construct_http_response(status, conn, serv, ars, type, len, body);
     if(!res) {

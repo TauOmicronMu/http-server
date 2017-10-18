@@ -26,7 +26,7 @@ int general_headers_add_timestamp(struct general_headers *hdr) {
     time_t curr_time = time(NULL);
     char *timestr = ctime(&curr_time); 
 
-    hdr->date = calloc(1, strlen(timestr) * sizeof(char));
+    hdr->date = calloc(1, (strlen(timestr) + 1) * sizeof(char));
     strcpy(hdr->date, timestr);
 
     return 0;
@@ -36,7 +36,7 @@ int general_headers_add_timestamp(struct general_headers *hdr) {
 int general_headers_add_connection(struct general_headers *hdr, char *conn) {
     if(!hdr) return -1;
 
-    hdr->connection = calloc(1, strlen(conn) * sizeof(char));
+    hdr->connection = calloc(1, (strlen(conn) + 1) * sizeof(char));
     strcpy(hdr->connection, conn);
 
     return 0;
@@ -56,7 +56,7 @@ struct response_headers *create_response_headers() {
 int response_headers_add_server(struct response_headers *hdr, char *serv) {
     if(!hdr) return -1;
 
-    hdr->server = calloc(1, strlen(serv) * sizeof(char));
+    hdr->server = calloc(1, (strlen(serv) + 1) * sizeof(char));
     strcpy(hdr->server, serv);
 
     return 0;
@@ -66,7 +66,7 @@ int response_headers_add_server(struct response_headers *hdr, char *serv) {
 int response_headers_add_accept_ranges(struct response_headers *hdr, char *ars) {
     if(!hdr) return -1;
 
-    hdr->accept_ranges = calloc(1, strlen(ars) * sizeof(char));
+    hdr->accept_ranges = calloc(1, (strlen(ars) + 1) * sizeof(char));
     strcpy(hdr->accept_ranges, ars);
 
     return 0;
@@ -86,7 +86,7 @@ struct entity_headers *create_entity_headers() {
 int entity_headers_add_content_type(struct entity_headers *hdr, char *type) {
     if(!hdr) return -1;
 
-    hdr->content_type = calloc(1, strlen(type) * sizeof(char));
+    hdr->content_type = calloc(1, (strlen(type) + 1) * sizeof(char));
     strcpy(hdr->content_type, type);
 
     return 0;
