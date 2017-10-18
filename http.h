@@ -1,6 +1,38 @@
 // HTTP_REQUEST
-// TODO: add structs and definitions for handling http_requests
+struct request_line {
+    char *http_verb;
+    char *request_uri;
+};
 
+struct request_headers {
+    char *host;
+    char *accept_language;
+    char *user_agent;
+    int content_length;
+};
+
+struct http_request {
+    struct request_line *request_line;
+    struct request_headers *request_headers;
+    char *body;
+};
+
+struct request_line *request_line_create();
+int request_line_add_http_verb(struct request_line *reql, char *verb);
+int request_line_add_uri(struct request_line *reql, char *uri);
+int request_line_destroy(struct request_line *reql);
+
+struct request_headers *request_headers_create();
+int request_headers_add_host(struct request_headers *reqh, char *host);
+int request_headers_add_accept_language(struct request_headers *reqh, char *acl);
+int request_headers_add_user_agent(struct request_headers *reqh, char *agnt);
+int request_headers_destroy(struct request_headers *reqh);
+
+struct http_request *http_request_create();
+int http_request_add_body(struct http_request *req, char *body);
+int http_request_destroy(struct http_request *req);
+struct http_request *construct_http_request(char *verb, char *uri, char *host, char *lang, char *agnt, int len, char *body);
+struct http_request *parse_http_request(char *req);
 
 // HTTP_RESPONSE
 struct general_headers {
@@ -43,7 +75,6 @@ int destroy_entity_headers(struct entity_headers *hdr);
 struct http_response *create_http_response(); // Create a blank HTTP response
 int destroy_http_response(struct http_response *res); // Destroy an HTTP response
 int add_http_response_body(struct http_response *res, char *body); // Add a body to an HTTP response
-struct http_response *parse_http_response(char *res); // Parse an HTTP response into the corresponding struct
 int send_http_response(int *clisockfd, struct http_response *res); // Send an HTTP response over a socket
 
 // Construct a full HTTP response (struct) from the required components

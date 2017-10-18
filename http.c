@@ -9,6 +9,154 @@
 
 #include "http.h"
 
+/* ========================= HTTP REQUEST =========================  */
+
+struct request_line *request_line_create() {
+    struct request_line *reql = calloc(1, sizeof(struct request_line));
+
+    reql->http_verb = NULL;
+    reql->request_uri = NULL;
+
+    return reql;
+}
+
+int request_line_add_http_verb(struct request_line *reql, char *verb) {
+    if(!reql) return -1;
+
+    int len = strlen(verb) + 1;    
+    reql->http_verb = calloc(1, len * sizeof(char));
+    strcpy(reql->http_verb, verb);
+
+    return 0;
+}
+
+int request_line_add_uri(struct request_line *reql, char *uri) {
+    if(!reql) return -1;
+
+    int len = strlen(uri) + 1;
+    reql->request_uri = calloc(1, len * sizeof(char));
+    strcpy(reql->request_uri, uri);
+
+    return 0;
+}
+
+int request_line_destroy(struct request_line *reql) {
+    free(reql->http_verb);
+    free(reql->request_uri);
+    free(reql);
+
+    return 0;
+}
+
+struct request_headers *request_headers_create() {
+    struct request_headers *reqh = calloc(1, sizeof(struct request_headers));
+
+    reqh->host = NULL;
+    reqh->accept_language = NULL;
+    reqh->user_agent = NULL;
+    reqh->content_length = 0;
+
+    return reqh;
+}
+
+
+int request_headers_add_host(struct request_headers *reqh, char *host) {
+    if(!reqh) return -1;
+
+    int len = strlen(host) + 1;
+    reqh->host = calloc(1, len * sizeof(char *));
+    strcpy(reqh->host, host);
+
+    return 0;
+}
+
+int request_headers_add_accept_language(struct request_headers *reqh, char *acl) {
+    if(!reqh) return -1;
+
+    int len = strlen(acl);
+    reqh->accept_language = calloc(1, len * sizeof(char *));
+    strcpy(reqh->accept_language, acl);
+
+    return 0;
+}
+
+int request_headers_add_user_agent(struct request_headers *reqh, char *agnt) {
+    if(!reqh) return -1;
+
+    int len = strlen(agnt);
+    reqh->user_agent = calloc(1, len * sizeof(char *));
+    strcpy(reqh->user_agent, agnt);
+
+    return 0;
+}
+
+int request_headers_destroy(struct request_headers *reqh) {
+    free(reqh->host);
+    free(reqh->accept_language);
+    free(reqh->user_agent); 
+
+    return 0;
+}
+
+
+struct http_request *http_request_create() {
+    struct http_request *req = calloc(1, sizeof(struct http_request));
+
+    struct request_line *reql = request_line_create();
+    struct request_headers *reqh = request_headers_create();
+
+    req->request_line = reql;
+    req->request_headers = reqh;
+    req->body = NULL;
+
+    return req;
+}
+
+int http_request_add_body(struct http_request *req, char *body) {
+    if(!req) return -1;
+    if(!req->request_headers->content_length) return -1;
+    if(!body) return -1;
+
+    req->body = realloc(req->body, req->request_headers->content_length);
+    memset(req->body, 0, req->request_headers->content_length * sizeof(char));
+
+    strncpy(req->body, body, req->request_headers->content_length);
+
+    return 0;
+}
+
+int http_request_destroy(struct http_request *req) {
+    request_line_destroy(req->request_line);
+    request_headers_destroy(req->request_headers);
+    free(req->body);
+    free(req);
+
+    return 0;
+}
+
+struct http_request *construct_http_request(char *verb, char *uri, char *host, char *lang, char *agnt, int len, char *body) {
+    struct http_request *req = calloc(1, sizeof(struct http_request));
+
+    request_line_add_http_verb(req->request_line, verb);
+    request_line_add_uri(req->request_line, uri);
+    
+    request_headers_add_host(req->request_headers, host);
+    request_headers_add_accept_language(req->request_headers, lang);
+    request_headers_add_user_agent(req->request_headers, agnt);
+    req->request_headers->content_length = len;
+
+    http_request_add_body(req, body);
+
+    return req;
+}
+
+struct http_request *parse_http_request(char *req) {
+
+    return NULL;
+}
+
+/* ========================= HTTP RESPONSE ========================= */
+
 // Create a general headers struct with default values
 struct general_headers *create_general_headers() {
     struct general_headers *hdr = calloc(1, sizeof(struct general_headers));
@@ -158,13 +306,6 @@ int add_http_response_body(struct http_response *res, char *body) {
 
     // Copy the provided body into the response
     strcpy(res->body, body);
-
-    return 0;
-}
-
-// Takes a raw http_response, res, and returns the equivalent http_response struct
-struct http_response *parse_http_response(char *res) {
-    // TODO: Implement this
 
     return 0;
 }
