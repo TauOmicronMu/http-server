@@ -13,25 +13,44 @@
 
 #define BUFFER_SIZE 16384
 
+#define NUM_FILES 2
+
+//TODO define a list of servable files.
+
 struct cli_thread_args {
     struct sockaddr_in *cli_addr;
     int *clisockfd;
 } cli_thread_args;
 
-int handleRequest(char *request, int *clisockfd) {
-        
-    // TODO: Actually handle requests instead of sending a default OK one.
-   
-    // construct OK response with default page. 
-    int status = 200;
-    char *conn = "close";
-    char *serv = "TServer/1.0";
-    char *ars = "bytes";
-    char *type = "text/html";
-    char *body = "<!doctype html><html><body><h1>TEST</h1></body></html>\n";  
-    int len = strlen(body) + 1;
+int char_arr_contains(char **arr, char *elem, int size) {
+    for(int i = 0; i < size, i++) {
+        if(strcmp(arr[i], elem) == 0) return 0;
+    } return 1;
+}
 
-    struct http_response *res = construct_http_response(status, conn, serv, ars, type, len, body);
+int handleRequest(char *request, int *clisockfd) {
+    // Parse the http request
+    struct http_request *req = parse_http_request(request);
+
+    char *verb = req->request_line->http_verb;
+
+    if(strcmp(verb, "GET") == 0) {    
+        // Check if the requested resource exists, if it
+        // does, we'll send it back
+        // TODO
+    }
+    else {
+        // We didn't recognise this, so send back a 400 (Bad Request)
+        int status = 400;
+        char *conn = "close";
+        char *serv = "TServer/1.0";
+        char *ars = "";
+        char *type = "";
+        char *body = "";
+        int len = 0;
+        struct http_response *res = construct_http_response(status, conn, serv, ars, type, len, body);
+    }
+
     if(!res) {
         fprintf(stderr, "Error constructing http_response\n");
         exit(1);
