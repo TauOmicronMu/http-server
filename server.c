@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -13,43 +15,101 @@
 
 #define BUFFER_SIZE 16384
 
-#define NUM_FILES 2
-
-//TODO define a list of servable files.
+#define FILES "files.txt"
 
 struct cli_thread_args {
     struct sockaddr_in *cli_addr;
     int *clisockfd;
 } cli_thread_args;
 
-int char_arr_contains(char **arr, char *elem, int size) {
-    for(int i = 0; i < size, i++) {
-        if(strcmp(arr[i], elem) == 0) return 0;
-    } return 1;
+/* 
+ * Reads the file at the filepath, filepath, into
+ * a buffer and returns a pointer to the buffer.
+ */
+char *readFile(char *filepath) {
+    FILE *fp = fopen(filepath, "r");
+    struct stat *fileStat = calloc(1, sizeof(struct stat));
+    if(stat(filepath, fileStat) < 0) {
+        fprintf(stderr, "Error statting %s\n", filepath);
+        free(fileStat);
+        return NULL;
+    }
+    // Allocate a buffer of the correct size
+    int size = fileStat->st_size;
+    char *buf = calloc(size + 1, sizeof(char));
+ 
+    // Read the file into the buffer
+    fread(buf, sizeof(char), size, fp);
+
+    free(fileStat);
+    return buf;
+}
+
+/* 
+ * Returns whether or not a given file(path), file, should
+ * be served by the server. 
+ * @return  0 if the file should be served, 
+ *         >0 if the file shouldn't be served,
+ *         <0 if an error occured  
+ */
+int servable(char *file) {
+    char *buf = readFile(FILES); 
+
+    // Check each line to see if it matches
+    char *rest = buf;
+    char *token = NULL;
+    while(token = strtok_r(rest, "\n", &rest)) {
+        printf("%s\n", token);
+        if(strcmp(token, file) == 0) {
+            free(buf);
+            return 0;
+        }
+    }
+    free(buf);
+    return 1;
 }
 
 int handleRequest(char *request, int *clisockfd) {
     // Parse the http request
     struct http_request *req = parse_http_request(request);
 
+    struct http_response *res;
+    int status = 0;
+    char *conn = "close";
+    char *serv = "TServer/1.0";
+    char *ars = "bytes";
+    char *type = "";
+    char *body = "";
+    int len = 0;
+
     char *verb = req->request_line->http_verb;
+    char *uri = req->request_line->request_uri;
 
     if(strcmp(verb, "GET") == 0) {    
         // Check if the requested resource exists, if it
         // does, we'll send it back
-        // TODO
+        if(servable(uri) == 0) {
+            status = 200;
+            char *type = "text/html"; // TODO: handle other types of file
+            
+            // If the uri is '/', return the index file
+            if(strcmp(uri, "/") == 0) {
+                body = readFile("index.html");
+                len = strlen(body);
+            }
+        }
+        else {
+            // The resource doesn't exist, so return a 404 (Not Found)
+            status = 404;
+        }
     }
     else {
         // We didn't recognise this, so send back a 400 (Bad Request)
-        int status = 400;
-        char *conn = "close";
-        char *serv = "TServer/1.0";
-        char *ars = "";
-        char *type = "";
-        char *body = "";
-        int len = 0;
-        struct http_response *res = construct_http_response(status, conn, serv, ars, type, len, body);
+        status = 400;
     }
+
+    // Construct a HTTP Response from the parameters
+    res = construct_http_response(status, conn, serv, ars, type, len, body);
 
     if(!res) {
         fprintf(stderr, "Error constructing http_response\n");
