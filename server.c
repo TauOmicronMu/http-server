@@ -22,6 +22,11 @@ struct cli_thread_args {
     int *clisockfd;
 } cli_thread_args;
 
+char *ext2mime(char *ext) {
+    if(strcmp(ext, "gif") == 0) return "image/gif";
+    return "text/plain"; // TODO: check what the correct default value should be
+}
+
 /* 
  * Reads the file at the filepath, filepath, into
  * a buffer and returns a pointer to the buffer.
@@ -36,10 +41,12 @@ char *readFile(char *filepath) {
     }
     // Allocate a buffer of the correct size
     int size = fileStat->st_size;
+    printf("File is %d large\n", size);
     char *buf = calloc(size + 1, sizeof(char));
- 
+   
     // Read the file into the buffer
     fread(buf, sizeof(char), size, fp);
+    printf("Here's that file! %s\n", buf);
 
     free(fileStat);
     return buf;
@@ -89,12 +96,36 @@ int handleRequest(char *request, int *clisockfd) {
         // does, we'll send it back
         if(servable(uri) == 0) {
             status = 200;
-            char *type = "text/html"; // TODO: handle other types of file
             
             // If the uri is '/', return the index file
             if(strcmp(uri, "/") == 0) {
+                type = "text/html"; 
                 body = readFile("index.html");
                 len = strlen(body);
+            }
+            else {
+                // Otherwise serve the requested file  
+                // First, get the file extension
+                char *rest = uri;
+                char *filename = strtok_r(rest, ".", &rest); 
+                char *extension = strtok_r(rest, ".", &rest);
+                printf("filename: %s, extension: %s\n", filename, extension);
+
+                // Get the MIME type, based on the extension (and then set Content-Type)
+                char *mime = ext2mime(extension);
+                type = mime;
+                printf("MIME type: %s\n", mime);
+ 
+                // Strip the leading / from the filename and read it into the body of the response
+                char *filename_c = filename + 1;
+                int buf_n = strlen(filename_c) + strlen(extension) + 2; // The overall length of the uri               
+                char *buf = calloc(buf_n, sizeof(char));
+                snprintf(buf, buf_n, "%s.%s", filename_c, extension);
+                printf("Attempting to read: %s\n", buf);
+                body = readFile(buf);
+                printf("read: %s\n", body);
+                len = strlen(body);
+                free(buf);
             }
         }
         else {
