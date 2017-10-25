@@ -159,17 +159,14 @@ struct http_request *parse_http_request(char *req) {
 
     // Get the request line
     char *token = strtok_r(rest, "\n", &rest);
-    printf("%s\n", token);
 
     // Split the request line to get the verb and uri
     char *rest_rl = token;
     char *verb = strtok_r(rest_rl, " ", &rest_rl);
     request_line_add_http_verb(rl, verb);
-    printf("%s\n", rl->http_verb);
 
     char *uri = strtok_r(rest_rl, " ", &rest_rl);
     request_line_add_uri(rl, uri);
-    printf("%s\n", rl->request_uri);
 
     // TODO: actually parse the whole request and not just the
     //       request line...

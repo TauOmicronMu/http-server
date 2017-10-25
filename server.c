@@ -59,7 +59,6 @@ int servable(char *file) {
     char *rest = buf;
     char *token = NULL;
     while(token = strtok_r(rest, "\n", &rest)) {
-        printf("%s\n", token);
         if(strcmp(token, file) == 0) {
             free(buf);
             return 0;
