@@ -1,21 +1,28 @@
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/file.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <pthread.h>
 
 #include "http.h"
+#include "freer.h"
 
 #define BACKLOG 10
 
 #define BUFFER_SIZE 16384
 
 #define FILES "files.txt"
+
+// Used to make sure everything's cleaned up at the end
+struct free_list *freelist;
 
 struct cli_thread_args {
     struct sockaddr_in *cli_addr;
@@ -59,9 +66,11 @@ struct read_file {
 struct read_file *readFile(char *filepath) {
     FILE *fp = fopen(filepath, "rb");
     struct stat *fileStat = calloc(1, sizeof(struct stat));
+    free_list_add(fileStat, freelist);
     if(stat(filepath, fileStat) < 0) {
         fprintf(stderr, "Error statting %s\n", filepath);
         free(fileStat);
+        fileStat = NULL;
         return NULL;
     }
     // Allocate a buffer of the correct size
@@ -70,13 +79,17 @@ struct read_file *readFile(char *filepath) {
     struct read_file *file = calloc(1, sizeof(struct read_file));
     file->body = calloc(size + 1, sizeof(char));
     file->len = size;
+
+    free_list_add(file, freelist);
+    free_list_add(file->body, freelist);
    
     // Read the file into the buffer
-    int nread = fread(file->body, size, 1,  fp);
+    fread(file->body, size, 1,  fp);
 
     fclose(fp); 
 
     free(fileStat);
+    fileStat = NULL;
     return file;
 }
 
@@ -93,19 +106,30 @@ int servable(char *file) {
     // Check each line to see if it matches
     char *rest = buf;
     char *token = NULL;
-    while(token = strtok_r(rest, "\n", &rest)) {
+    while( (token = strtok_r(rest, "\n", &rest)) ) {
         if(strcmp(token, file) == 0) {
             free(buf);
+            buf = NULL;
             return 0;
         }
     }
     free(buf);
+    buf = NULL;
     return 1;
 }
 
 int handleRequest(char *request, int *clisockfd) {
     // Parse the http request
     struct http_request *req = parse_http_request(request);
+    free_list_add(req->request_line->http_verb, freelist);
+    free_list_add(req->request_line->request_uri, freelist);
+    free_list_add(req->request_line, freelist);
+    free_list_add(req->request_headers->host, freelist);
+    free_list_add(req->request_headers->accept_language, freelist);
+    free_list_add(req->request_headers->user_agent, freelist);
+    free_list_add(req->request_headers, freelist);
+    free_list_add(req->body, freelist);
+    free_list_add(req, freelist);
 
     struct read_file *file = NULL;
     struct http_response *res;
@@ -113,12 +137,14 @@ int handleRequest(char *request, int *clisockfd) {
     char *conn = "close";
     char *serv = "TServer/1.0";
     char *ars = "bytes";
-    char *type = "";
-    char *body = "";
-    int len = 0;
+    char *type = "text/plain";
+    char *body = " ";
+    int len = 1;
 
     char *verb = req->request_line->http_verb;
     char *uri = req->request_line->request_uri;
+    if(!verb) verb = "";
+    if(!uri) uri = "";
 
     if(strcmp(verb, "GET") == 0) {    
         // Check if the requested resource exists, if it
@@ -148,6 +174,7 @@ int handleRequest(char *request, int *clisockfd) {
                 char *filename_c = filename + 1;
                 int buf_n = strlen(filename_c) + strlen(extension) + 2; // The overall length of the uri               
                 char *buf = calloc(buf_n, sizeof(char));
+                free_list_add(buf, freelist);
                 snprintf(buf, buf_n, "%s.%s", filename_c, extension);
                 file = readFile(buf);
                 body = file->body;
@@ -167,6 +194,17 @@ int handleRequest(char *request, int *clisockfd) {
     // Construct a HTTP Response from the parameters
     res = construct_http_response(status, conn, serv, ars, type, len, body);
 
+    free_list_add(res->general_headers->date, freelist);
+    free_list_add(res->general_headers->connection, freelist);
+    free_list_add(res->general_headers, freelist);
+    free_list_add(res->response_headers->server, freelist);
+    free_list_add(res->response_headers->accept_ranges, freelist);
+    free_list_add(res->response_headers, freelist);
+    free_list_add(res->entity_headers->content_type, freelist);
+    free_list_add(res->entity_headers, freelist);
+    free_list_add(res->body, freelist);
+    free_list_add(res, freelist);
+
      if(!res) {
         fprintf(stderr, "Error constructing http_response\n");
         exit(1);
@@ -179,11 +217,16 @@ int handleRequest(char *request, int *clisockfd) {
 
     // Clean up
     free(file->body);
+    file->body = NULL;
     free(file);
+    file = NULL;
+
+    if(http_request_destroy(req) < 0) {
+        fprintf(stderr, "Error destroying HTTP request struct\n");
+    }
 
     if(destroy_http_response(res) < 0) {
         fprintf(stderr, "Error destroying HTTP response struct\n");
-        exit(1);
     }
 
     return 0;
@@ -197,7 +240,6 @@ void *handleConnection(void *args) {
 
     memset(in_buffer, '\0', BUFFER_SIZE * sizeof(char));
 
-    
     if(read(*clisockfd, in_buffer, BUFFER_SIZE - 1) < 0) {
         fprintf(stderr, "error reading from socket\n");
         exit(1);
@@ -210,16 +252,26 @@ void *handleConnection(void *args) {
 
     close(*clisockfd);
     free(clisockfd);
+    clisockfd = NULL;
     free(cli_addr);
+    cli_addr = NULL;
     free((struct cli_thread_args *) args);
+    args = NULL; 
 
     return (void *) 0;
 }
 
-int main(int argc, char ** argv) {
+void sigintHandler() { 
+    free_list_free_all(freelist);
+    exit(0); 
+}
 
+int main(int argc, char ** argv) {
     int portno, sockfd;
     struct sockaddr_in serv_addr;
+
+    freelist = free_list_create();
+    signal(SIGINT, *sigintHandler);
 
     // Check args
     if(argc != 2) {
@@ -239,6 +291,11 @@ int main(int argc, char ** argv) {
     if(sockfd < 0) {
         fprintf(stderr, "error (%d) creating socket\n", sockfd);
         exit(1);
+    }
+
+    // Allow socket to be reused (it's a PITA otherwise...)
+    if( (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &(int){ 1 }, sizeof(int)) < 0) ) {
+        fprintf(stderr, "setsockopt(SO_REUSEADDR) failed");
     }
 
     memset((char *) &serv_addr, '\0', sizeof(serv_addr));
@@ -262,7 +319,10 @@ int main(int argc, char ** argv) {
     while(1) { 
         struct sockaddr_in *cli_addr = calloc(1, sizeof(struct sockaddr));
         int *clisockfd = calloc(1, sizeof(int));
-        int clilen;
+        unsigned int clilen;
+
+        free_list_add(cli_addr, freelist);
+        free_list_add(clisockfd, freelist);
 
         clilen = sizeof(cli_addr);
         
@@ -274,6 +334,8 @@ int main(int argc, char ** argv) {
         struct cli_thread_args *args = calloc(1, sizeof(struct cli_thread_args));
         args->cli_addr = cli_addr;
         args->clisockfd = clisockfd;
+
+        free_list_add(args, freelist);
 
         // Create a new thread
         pthread_t cli_thread;

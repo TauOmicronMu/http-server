@@ -2,14 +2,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
 #include "http.h"
-
-int dprintf(int fd, const char *format, ...); 
 
 /* ========================= HTTP REQUEST =========================  */
 
@@ -24,6 +23,7 @@ struct request_line *request_line_create() {
 
 int request_line_add_http_verb(struct request_line *reql, char *verb) {
     if(!reql) return -1;
+    if(!verb) return -1;
 
     int len = strlen(verb) + 1;    
     reql->http_verb = calloc(1, len * sizeof(char));
@@ -34,6 +34,7 @@ int request_line_add_http_verb(struct request_line *reql, char *verb) {
 
 int request_line_add_uri(struct request_line *reql, char *uri) {
     if(!reql) return -1;
+    if(!uri) return -1;
 
     int len = strlen(uri) + 1;
     reql->request_uri = calloc(1, len * sizeof(char));
@@ -44,9 +45,11 @@ int request_line_add_uri(struct request_line *reql, char *uri) {
 
 int request_line_destroy(struct request_line *reql) {
     free(reql->http_verb);
+    reql->http_verb = NULL;
     free(reql->request_uri);
+    reql->request_uri = NULL;
     free(reql);
-
+    reql = NULL;
     return 0;
 }
 
@@ -64,6 +67,7 @@ struct request_headers *request_headers_create() {
 
 int request_headers_add_host(struct request_headers *reqh, char *host) {
     if(!reqh) return -1;
+    if(!host) return -1;
 
     int len = strlen(host) + 1;
     reqh->host = calloc(1, len * sizeof(char *));
@@ -74,6 +78,7 @@ int request_headers_add_host(struct request_headers *reqh, char *host) {
 
 int request_headers_add_accept_language(struct request_headers *reqh, char *acl) {
     if(!reqh) return -1;
+    if(!acl) return -1;
 
     int len = strlen(acl);
     reqh->accept_language = calloc(1, len * sizeof(char *));
@@ -84,6 +89,7 @@ int request_headers_add_accept_language(struct request_headers *reqh, char *acl)
 
 int request_headers_add_user_agent(struct request_headers *reqh, char *agnt) {
     if(!reqh) return -1;
+    if(!agnt) return -1;
 
     int len = strlen(agnt);
     reqh->user_agent = calloc(1, len * sizeof(char *));
@@ -94,9 +100,13 @@ int request_headers_add_user_agent(struct request_headers *reqh, char *agnt) {
 
 int request_headers_destroy(struct request_headers *reqh) {
     free(reqh->host);
+    reqh->host = NULL;
     free(reqh->accept_language);
+    reqh->accept_language = NULL;
     free(reqh->user_agent); 
-
+    reqh->user_agent = NULL;
+    free(reqh);
+    reqh = NULL;
     return 0;
 }
 
@@ -131,6 +141,7 @@ int http_request_destroy(struct http_request *req) {
     request_line_destroy(req->request_line);
     request_headers_destroy(req->request_headers);
     free(req->body);
+    req->body = NULL;
     free(req);
 
     return 0;
@@ -153,7 +164,7 @@ struct http_request *construct_http_request(char *verb, char *uri, char *host, c
 }
 
 struct http_request *parse_http_request(char *req) {
-    struct request_line *rl = request_line_create();
+    struct http_request *request = http_request_create();
 
     char *rest = req;
 
@@ -163,16 +174,13 @@ struct http_request *parse_http_request(char *req) {
     // Split the request line to get the verb and uri
     char *rest_rl = token;
     char *verb = strtok_r(rest_rl, " ", &rest_rl);
-    request_line_add_http_verb(rl, verb);
+    request_line_add_http_verb(request->request_line, verb);
 
     char *uri = strtok_r(rest_rl, " ", &rest_rl);
-    request_line_add_uri(rl, uri);
+    request_line_add_uri(request->request_line, uri);
 
     // TODO: actually parse the whole request and not just the
     //       request line...
-
-    struct http_request *request = http_request_create();
-    request->request_line = rl;    
     
     return request;
 }
@@ -278,26 +286,31 @@ struct http_response *create_http_response() {
 // Free all memory in use by given general_headers, hdr
 int destroy_general_headers(struct general_headers *hdr) {
     free(hdr->date);
+    hdr->date = NULL;
     free(hdr->connection);
+    hdr->connection = NULL;
     free(hdr);
-
+    hdr = NULL;
     return 0;
 }
 
 // Free all memory in use by given response_headers, hdr
 int destroy_response_headers(struct response_headers *hdr) {
     free(hdr->server);
+    hdr->server = NULL;
     free(hdr->accept_ranges);
+    hdr->accept_ranges = NULL;
     free(hdr);
-
+    hdr = NULL;
     return 0;
 }
 
 // Free all memory in use by given entity_headers, hdr
 int destroy_entity_headers(struct entity_headers *hdr) {
     free(hdr->content_type);
+    hdr->content_type = NULL;
     free(hdr);
-
+    hdr = NULL;
     return 0;
 }
 
@@ -307,7 +320,7 @@ int destroy_http_response(struct http_response *res) {
     destroy_response_headers(res->response_headers);
     destroy_entity_headers(res->entity_headers);
     free(res);
-  
+    res = NULL;
     return 0;
 }
 
