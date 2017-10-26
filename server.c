@@ -23,16 +23,27 @@ struct cli_thread_args {
 } cli_thread_args;
 
 char *ext2mime(char *ext) {
+    if(strcmp(ext, "jpg") == 0) return "image/jpeg";
     if(strcmp(ext, "gif") == 0) return "image/gif";
     return "text/plain"; // TODO: check what the correct default value should be
 }
+
+void printnull(char *str, int n) {
+    int i;
+    for(i = 0; i < n; i++) printf("%c", str[i]);
+}
+
+struct read_file {
+    int len;
+    char *body;
+};
 
 /* 
  * Reads the file at the filepath, filepath, into
  * a buffer and returns a pointer to the buffer.
  */
-char *readFile(char *filepath) {
-    FILE *fp = fopen(filepath, "r");
+struct read_file *readFile(char *filepath) {
+    FILE *fp = fopen(filepath, "rb");
     struct stat *fileStat = calloc(1, sizeof(struct stat));
     if(stat(filepath, fileStat) < 0) {
         fprintf(stderr, "Error statting %s\n", filepath);
@@ -42,14 +53,20 @@ char *readFile(char *filepath) {
     // Allocate a buffer of the correct size
     int size = fileStat->st_size;
     printf("File is %d large\n", size);
-    char *buf = calloc(size + 1, sizeof(char));
+
+    struct read_file *file = calloc(1, sizeof(struct read_file));
+    file->body = calloc(size + 1, sizeof(char));
+    file->len = size;
    
     // Read the file into the buffer
-    fread(buf, sizeof(char), size, fp);
-    printf("Here's that file! %s\n", buf);
+    int nread = fread(file->body, size, 1,  fp);
+    //printf("This was read:\n");
+    //printnull(file->body, file->len);
+
+    fclose(fp); 
 
     free(fileStat);
-    return buf;
+    return file;
 }
 
 /* 
@@ -60,7 +77,7 @@ char *readFile(char *filepath) {
  *         <0 if an error occured  
  */
 int servable(char *file) {
-    char *buf = readFile(FILES); 
+    char *buf = readFile(FILES)->body; 
 
     // Check each line to see if it matches
     char *rest = buf;
@@ -79,6 +96,7 @@ int handleRequest(char *request, int *clisockfd) {
     // Parse the http request
     struct http_request *req = parse_http_request(request);
 
+    struct read_file *file = NULL;
     struct http_response *res;
     int status = 0;
     char *conn = "close";
@@ -100,8 +118,9 @@ int handleRequest(char *request, int *clisockfd) {
             // If the uri is '/', return the index file
             if(strcmp(uri, "/") == 0) {
                 type = "text/html"; 
-                body = readFile("index.html");
-                len = strlen(body);
+                file = readFile("index.html");
+                body = file->body;
+                len = file->len;
             }
             else {
                 // Otherwise serve the requested file  
@@ -122,10 +141,9 @@ int handleRequest(char *request, int *clisockfd) {
                 char *buf = calloc(buf_n, sizeof(char));
                 snprintf(buf, buf_n, "%s.%s", filename_c, extension);
                 printf("Attempting to read: %s\n", buf);
-                body = readFile(buf);
-                printf("read: %s\n", body);
-                len = strlen(body);
-                free(buf);
+                file = readFile(buf);
+                body = file->body;
+                len = file->len;
             }
         }
         else {
@@ -138,10 +156,14 @@ int handleRequest(char *request, int *clisockfd) {
         status = 400;
     }
 
+    printf("File length before construct: %d\n", file->len);
+
     // Construct a HTTP Response from the parameters
     res = construct_http_response(status, conn, serv, ars, type, len, body);
 
-    if(!res) {
+    printf("File length after construct: %d\n", res->entity_headers->content_length);
+
+     if(!res) {
         fprintf(stderr, "Error constructing http_response\n");
         exit(1);
     }
@@ -150,6 +172,12 @@ int handleRequest(char *request, int *clisockfd) {
         fprintf(stderr, "Error sending HTTP Response\n");
         exit(1);
     }
+
+    printf("%d bytes should have been sent\n", res->entity_headers->content_length);
+
+    // Clean up
+    free(file->body);
+    free(file);
 
     if(destroy_http_response(res) < 0) {
         fprintf(stderr, "Error destroying HTTP response struct\n");

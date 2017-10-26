@@ -327,7 +327,7 @@ int add_http_response_body(struct http_response *res, char *body) {
     memset(res->body, 0, res->entity_headers->content_length * sizeof(char));
 
     // Copy the provided body into the response
-    strncpy(res->body, body, res->entity_headers->content_length);
+    memcpy(res->body, body, res->entity_headers->content_length);
 
     return 0;
 }
@@ -345,14 +345,14 @@ char *stat2nam(int stat) {
 
 // Sends an http_response, res, over the given socket, clisockfd
 int send_http_response(int *clisockfd, struct http_response *res) {
+    // Send the headers
     int n = dprintf(*clisockfd, "HTTP/1.1 %d %s\n"
                                 "Date: %s"
                                 "Connection: %s\n" 
                                 "Server: %s\n"
                                 "Accept-Ranges: %s\n"
                                 "Content-Type: %s\n"
-                                "Content-Length: %d\n\n"
-                                "%s\n",
+                                "Content-Length: %d\n\n",
                                 res->status, 
                                 stat2nam(res->status),
                                 res->general_headers->date,
@@ -360,9 +360,10 @@ int send_http_response(int *clisockfd, struct http_response *res) {
                                 res->response_headers->server,
                                 res->response_headers->accept_ranges,
                                 res->entity_headers->content_type,
-                                res->entity_headers->content_length,
-                                res->body);
-    
+                                res->entity_headers->content_length);
+    if(n < 0) return -1;
+    // Send the body
+    n = write(*clisockfd, res->body, res->entity_headers->content_length);
     if(n < 0) return -1;
     return 0;
 }
