@@ -23,16 +23,30 @@ struct cli_thread_args {
 } cli_thread_args;
 
 char *ext2mime(char *ext) {
+    // Images
     if(strcmp(ext, "jpg") == 0) return "image/jpeg";
+    if(strcmp(ext, "png") == 0) return "image/png";
     if(strcmp(ext, "gif") == 0) return "image/gif";
-    return "text/plain"; // TODO: check what the correct default value should be
+    if(strcmp(ext, "bmp") == 0) return "image/bmp";
+    // Text
+    if(strcmp(ext, "txt") == 0) return "text/plain";
+    if(strcmp(ext, "html") == 0) return "text/html";
+    if(strcmp(ext, "css") == 0) return "text/css";
+    if(strcmp(ext, "js") == 0) return "text/javascript";
+    // Binary data
+    if(strcmp(ext, "pdf") == 0) return "application/pdf";
+    if(strcmp(ext, "xml") == 0) return "application/xml";
+    // Default
+    return "text/plain";
 }
 
+// Print a string, str, of size n (regardless of null bytes)
 void printnull(char *str, int n) {
     int i;
     for(i = 0; i < n; i++) printf("%c", str[i]);
 }
 
+// Struct that represents a file (specifically one read by readFile)
 struct read_file {
     int len;
     char *body;
@@ -52,7 +66,6 @@ struct read_file *readFile(char *filepath) {
     }
     // Allocate a buffer of the correct size
     int size = fileStat->st_size;
-    printf("File is %d large\n", size);
 
     struct read_file *file = calloc(1, sizeof(struct read_file));
     file->body = calloc(size + 1, sizeof(char));
@@ -60,8 +73,6 @@ struct read_file *readFile(char *filepath) {
    
     // Read the file into the buffer
     int nread = fread(file->body, size, 1,  fp);
-    //printf("This was read:\n");
-    //printnull(file->body, file->len);
 
     fclose(fp); 
 
@@ -128,19 +139,16 @@ int handleRequest(char *request, int *clisockfd) {
                 char *rest = uri;
                 char *filename = strtok_r(rest, ".", &rest); 
                 char *extension = strtok_r(rest, ".", &rest);
-                printf("filename: %s, extension: %s\n", filename, extension);
 
                 // Get the MIME type, based on the extension (and then set Content-Type)
                 char *mime = ext2mime(extension);
                 type = mime;
-                printf("MIME type: %s\n", mime);
  
                 // Strip the leading / from the filename and read it into the body of the response
                 char *filename_c = filename + 1;
                 int buf_n = strlen(filename_c) + strlen(extension) + 2; // The overall length of the uri               
                 char *buf = calloc(buf_n, sizeof(char));
                 snprintf(buf, buf_n, "%s.%s", filename_c, extension);
-                printf("Attempting to read: %s\n", buf);
                 file = readFile(buf);
                 body = file->body;
                 len = file->len;
@@ -156,12 +164,8 @@ int handleRequest(char *request, int *clisockfd) {
         status = 400;
     }
 
-    printf("File length before construct: %d\n", file->len);
-
     // Construct a HTTP Response from the parameters
     res = construct_http_response(status, conn, serv, ars, type, len, body);
-
-    printf("File length after construct: %d\n", res->entity_headers->content_length);
 
      if(!res) {
         fprintf(stderr, "Error constructing http_response\n");
@@ -172,8 +176,6 @@ int handleRequest(char *request, int *clisockfd) {
         fprintf(stderr, "Error sending HTTP Response\n");
         exit(1);
     }
-
-    printf("%d bytes should have been sent\n", res->entity_headers->content_length);
 
     // Clean up
     free(file->body);

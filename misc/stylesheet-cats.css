@@ -1,0 +1,14 @@
+body {
+  top: 0;
+  left: 0;
+  color: #fff;   
+  position: relative;
+  margin: 0;
+  padding: 2%;
+  background-color: #367588; 
+}
+
+h1 {
+  font-weight: bold;
+}
+

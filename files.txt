@@ -1,3 +1,14 @@
 /
+/stylesheet.css
 /cat.jpg
 /cat.gif
+/hey.txt
+/contact.txt
+/jqueryconsole.js
+/JQUERY_CONSOLE_LICENSE
+/README.md
+/LICENSE
+/education.txt
+/secret.txt
+/CNAME
+/CV.pdf
