@@ -191,7 +191,7 @@ int handleRequest(char *request, int *clisockfd) {
         status = 400;
     }
 
-    // Construct a HTTP Response from the parameters
+    // Construct an HTTP Response from the parameters
     res = construct_http_response(status, conn, serv, ars, type, len, body);
 
     free_list_add(res->general_headers->date, freelist);
@@ -216,11 +216,6 @@ int handleRequest(char *request, int *clisockfd) {
     }
 
     // Clean up
-    free(file->body);
-    file->body = NULL;
-    free(file);
-    file = NULL;
-
     if(http_request_destroy(req) < 0) {
         fprintf(stderr, "Error destroying HTTP request struct\n");
     }
