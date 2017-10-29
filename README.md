@@ -3,6 +3,7 @@ This is my submission for the first Networks assignment, which was to build a se
 
 ### Usage
 > make
+
 > ./server < port > 
 
 This will compile the code and start a server on the provided port. Any pages to be served should be added on a new line of _files.txt_  - any URI not listed in _files.txt_ will **not** be served.
