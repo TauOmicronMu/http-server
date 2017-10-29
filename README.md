@@ -2,7 +2,7 @@
 This is my submission for the first Networks assignment, which was to build a server that would correctly interact with most standard (modern) browsers. 
 
 ### Usage
-> cd src/
+> cd 1526322/src/
 
 > make
 
@@ -22,9 +22,7 @@ In the future, there will be some differentiation implemented between nonexisten
 
 ### Structure
 
-**server.c**: contains the main method (setup & accept loop) for the server.
-**http.h and http.c**: contain the structs and methods that handle creation, destruction and other methods (eg. sending) HTTP requests and HTTP responses.
-
-**freer.h and freer.c**: contain structs and methods used to handle allocated memory (and specifically freeing it upon termination).
-
-**.html/.css/.js/.txt/.png/.pdf/.gif/etc.**: images and files for the website itself.
+- **server.c**: contains the main method (setup & accept loop) for the server.
+- **http.h and http.c**: contain the structs and methods that handle creation, destruction and other methods (eg. sending) HTTP requests and HTTP responses.
+- **freer.h and freer.c**: contain structs and methods used to handle allocated memory (and specifically freeing it upon termination).
+- **.html/.css/.js/.txt/.png/.pdf/.gif/etc.**: images and files for the website itself.
